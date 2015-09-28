@@ -25,9 +25,13 @@ import java.util.stream.Collectors;
  * @since 2015-09-27
  */
 public class Staff extends WebClient {
-    private final Target target;
+    private Target target;
 
-    public Staff(Target target) throws IOException{
+    public Staff() throws IOException {
+        this(null);
+    }
+
+    public Staff(Target target) throws IOException {
         this(target, Staff.getDefaultAccountProperties());
     }
 
@@ -60,6 +64,14 @@ public class Staff extends WebClient {
         return !((HtmlPage) loginButton.click()).asText().contains("The username or password you entered is incorrect.");
     }
 
+    public Target getTarget(){
+        return this.target;
+    }
+
+    public void setTarget(Target target){
+        this.target = target;
+    }
+
     private List<String> getArticles(String url) throws IOException {
         return ((HtmlPage) this.getPage(url))
                 .getByXPath("//ul[@class='lst4']/li/a/p/strong").stream()
@@ -67,30 +79,27 @@ public class Staff extends WebClient {
                 .collect(Collectors.toList());
     }
 
-    public List<String> getArticles() throws IOException {
-        return getArticles("http://m.cafe.naver.com/" + this.target.getAddress());
+    public List<String> getNewArticles() throws IOException {
+        return getArticles("http://m.cafe.naver.com/" + this.getTarget().getAddress());
     }
 
     public List<String> getStaffArticles() throws IOException {
-        return getArticles("http://m.cafe.naver.com/StaffArticleList.nhn?search.clubid=" + this.target.getClubId() + "&search.menuid=23&search.boardtype=L");
+        return getArticles("http://m.cafe.naver.com/StaffArticleList.nhn?search.clubid=" + this.getTarget().getClubId() + "&search.menuid=23&search.boardtype=L");
     }
 
     public static void main(String[] args) throws IOException {
-        System.setErr(new PrintStream(new OutputStream(){
+        System.setErr(new PrintStream(new OutputStream() {
             @Override
             public void write(int b) throws IOException{
                 //I HATE RED LOGS!
             }
         }));
 
-        Takoyaki takoyaki = new Takoyaki();
-        takoyaki.start();
+        try(final Staff staff = new Staff()){
+            Takoyaki takoyaki = new Takoyaki();
+            takoyaki.start();
 
-        try(final Staff staff = new Staff(takoyaki.getTarget(23683173))){
-            System.out.println(TextFormat.AQUA.getAnsiCode() + "*** 전체글 보기 최근 글 목록 ***" + TextFormat.RESET.getAnsiCode());
-            staff.getArticles().forEach(System.out::println);
-
-            System.out.printf("%n");
+            staff.setTarget(takoyaki.getTargets().get(0));
 
             System.out.println(TextFormat.AQUA.getAnsiCode() + "*** 스탭 게시판 최근 글 목록 ***" + TextFormat.RESET.getAnsiCode());
             staff.getStaffArticles().forEach(System.out::println);
