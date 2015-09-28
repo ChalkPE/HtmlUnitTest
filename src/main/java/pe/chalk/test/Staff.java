@@ -8,6 +8,9 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlPasswordInput;
 import com.gargoylesoftware.htmlunit.html.HtmlSubmitInput;
 import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
+import pe.chalk.takoyaki.Takoyaki;
+import pe.chalk.takoyaki.Target;
+import pe.chalk.takoyaki.utils.TextFormat;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,10 +25,29 @@ import java.util.stream.Collectors;
  * @since 2015-09-27
  */
 public class Staff extends WebClient {
-    public Staff() throws IOException {
-        super(BrowserVersion.CHROME);
-        this.waitForBackgroundJavaScript(5000);
+    private final Target target;
 
+    public Staff(Target target) throws IOException{
+        this(target, Staff.getDefaultAccountProperties());
+    }
+
+    public Staff(Target target, Properties accountProperties) throws IOException {
+        super(BrowserVersion.CHROME);
+        this.target = target;
+
+        if(!this.login(accountProperties)){
+            throw new IllegalStateException("로그인 실패");
+        }
+    }
+
+    private static Properties getDefaultAccountProperties() throws IOException {
+        Properties accountProperties = new Properties();
+        accountProperties.load(new FileInputStream("account.properties"));
+
+        return accountProperties;
+    }
+
+    private boolean login(Properties accountProperties) throws IOException {
         final HtmlPage loginPage = this.getPage("https://nid.naver.com/nidlogin.login");
         final HtmlForm loginForm = loginPage.getFormByName("frmNIDLogin");
 
@@ -33,22 +55,27 @@ public class Staff extends WebClient {
         final HtmlPasswordInput pwInput = loginForm.getInputByName("pw");
         final HtmlSubmitInput loginButton = (HtmlSubmitInput) loginForm.getByXPath("//fieldset/span/input").get(0);
 
-        Properties accountProperties = new Properties();
-        accountProperties.load(new FileInputStream("account.properties"));
-
         idInput.setValueAttribute(accountProperties.getProperty("user.id"));
         pwInput.setValueAttribute(accountProperties.getProperty("user.pw"));
-        loginButton.click();
+        return !((HtmlPage) loginButton.click()).asText().contains("The username or password you entered is incorrect.");
     }
 
-    public List<String> getStaffArticles() throws IOException {
-        return ((HtmlPage) this.getPage("http://m.cafe.naver.com/StaffArticleList.nhn?search.clubid=23683173&search.menuid=23&search.boardtype=L"))
+    private List<String> getArticles(String url) throws IOException {
+        return ((HtmlPage) this.getPage(url))
                 .getByXPath("//ul[@class='lst4']/li/a/p/strong").stream()
                 .map(elem -> ((HtmlElement) elem).asText())
                 .collect(Collectors.toList());
     }
 
-    public static void main(String[] args){
+    public List<String> getArticles() throws IOException {
+        return getArticles("http://m.cafe.naver.com/" + this.target.getAddress());
+    }
+
+    public List<String> getStaffArticles() throws IOException {
+        return getArticles("http://m.cafe.naver.com/StaffArticleList.nhn?search.clubid=" + this.target.getClubId() + "&search.menuid=23&search.boardtype=L");
+    }
+
+    public static void main(String[] args) throws IOException {
         System.setErr(new PrintStream(new OutputStream(){
             @Override
             public void write(int b) throws IOException{
@@ -56,7 +83,16 @@ public class Staff extends WebClient {
             }
         }));
 
-        try(final Staff staff = new Staff()){
+        Takoyaki takoyaki = new Takoyaki();
+        takoyaki.start();
+
+        try(final Staff staff = new Staff(takoyaki.getTarget(23683173))){
+            System.out.println(TextFormat.AQUA.getAnsiCode() + "*** 전체글 보기 최근 글 목록 ***" + TextFormat.RESET.getAnsiCode());
+            staff.getArticles().forEach(System.out::println);
+
+            System.out.printf("%n");
+
+            System.out.println(TextFormat.AQUA.getAnsiCode() + "*** 스탭 게시판 최근 글 목록 ***" + TextFormat.RESET.getAnsiCode());
             staff.getStaffArticles().forEach(System.out::println);
         }catch(final IOException e){
             e.printStackTrace();
