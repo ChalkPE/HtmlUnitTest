@@ -52,6 +52,9 @@ public class Staff extends WebClient {
     }
 
     private boolean login(Properties accountProperties) throws IOException {
+        final boolean enabled = this.getOptions().isJavaScriptEnabled();
+        this.getOptions().setJavaScriptEnabled(false);
+
         final HtmlPage loginPage = this.getPage("https://nid.naver.com/nidlogin.login");
         final HtmlForm loginForm = loginPage.getFormByName("frmNIDLogin");
 
@@ -61,7 +64,11 @@ public class Staff extends WebClient {
 
         idInput.setValueAttribute(accountProperties.getProperty("user.id"));
         pwInput.setValueAttribute(accountProperties.getProperty("user.pw"));
-        return !((HtmlPage) loginButton.click()).asText().contains("The username or password you entered is incorrect.");
+
+        final boolean result = !((HtmlPage) loginButton.click()).asText().contains("The username or password you entered is incorrect.");
+        this.getOptions().setJavaScriptEnabled(enabled);
+
+        return result;
     }
 
     public Target getTarget(){
